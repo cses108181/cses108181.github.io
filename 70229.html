@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>植物根吸水力實驗室 - 雷射測量版</title>
+    <style>
+        :root { --green: #2ecc71; --purple: #9b59b6; --dark: #2c3e50; --bg: #f8f9fa; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { background: var(--dark); color: white; padding: 15px; text-align: center; }
+        
+        #lab-bench { display: flex; flex: 1; padding: 20px; gap: 20px; overflow: hidden; }
+        
+        /* 設備盤 */
+        #equipment-tray { width: 220px; background: white; border-radius: 10px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .tool { background: #fff; border: 2px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; cursor: pointer; transition: 0.2s; text-align: center; font-weight: bold; }
+        .tool:hover { border-color: var(--green); background: #e8f5e9; }
+        .tool.laser-g { border-left: 8px solid var(--green); }
+        .tool.laser-p { border-left: 8px solid var(--purple); }
+
+        /* 實驗中心與屏幕 */
+        #work-center { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+        #petri-dish-zone { flex: 1; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #eee; }
+        #petri-dish { width: 180px; height: 180px; border: 5px solid #bdc3c7; border-radius: 50%; background: #8d6e63; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; }
+        .seed { width: 8px; height: 8px; background: #f1c40f; border-radius: 50%; margin: 3px; }
+        
+        /* 屏幕模擬 */
+        #screen-view { height: 150px; background: #000; border-radius: 10px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .interference-pattern { width: 100%; height: 20px; display: flex; justify-content: center; filter: blur(1px); }
+        .fringe { height: 100%; width: 4px; margin: 0 10px; opacity: 0; transition: 0.5s; }
+        
+        /* 儀表板 */
+        #display-panel { width: 280px; background: #34495e; color: #fff; border-radius: 10px; padding: 20px; }
+        .lcd { background: #222; padding: 12px; border-radius: 5px; border: 2px solid #7f8c8d; margin-bottom: 10px; font-family: monospace; }
+        .label { color: #bdc3c7; font-size: 0.85em; }
+        .value { font-size: 1.3em; color: var(--green); }
+
+        #status-bar { background: white; padding: 10px 25px; border-top: 1px solid #ddd; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>植物根徑測量：綠光 vs 紫光雷射干涉模擬</h1>
+</header>
+
+<div id="lab-bench">
+    <div id="equipment-tray">
+        <div class="tool" onclick="action('plant')">🌱 播種 (櫻桃蘿蔔)</div>
+        <div class="tool" onclick="nextDay()">📅 進入隔天</div>
+        <hr>
+        <div class="tool laser-g" onclick="action('laser', 'green')">🔦 綠光雷射 (532nm)</div>
+        <div class="tool laser-p" onclick="action('laser', 'purple')">🔦 紫光雷射 (405nm)</div>
+        <div class="tool" onclick="location.reload()" style="color:red; margin-top:30px;">🔄 重設</div>
+    </div>
+
+    <div id="work-center">
+        <div id="petri-dish-zone">
+            <div id="petri-dish"></div>
+            <div style="margin-left: 50px;">
+                <p>生長天數：第 <span id="days">0</span> 天</p>
+                <p>估計主根直徑：<span id="true-d">--</span> mm</p>
+            </div>
+        </div>
+        <div id="screen-view">
+            <div id="fringe-container" class="interference-pattern">
+                <!-- 動態生成干涉條紋 -->
+            </div>
+            <div style="position:absolute; bottom:5px; color:#555; font-size:10px;">實驗屏幕 (觀測干涉亮紋)</div>
+        </div>
+    </div>
+
+    <div id="display-panel">
+        <div class="lcd">
+            <div class="label">雷射波長 (λ)</div>
+            <div class="value"><span id="wave-val">0</span> nm</div>
+        </div>
+        <div class="lcd">
+            <div class="label">亮紋間距 (S)</div>
+            <div class="value"><span id="s-val">0.00</span> mm</div>
+        </div>
+        <div class="lcd">
+            <div class="label">測距儀 L (根至屏幕)</div>
+            <div class="value">8394 mm</div>
+        </div>
+        <div class="lcd" style="border-color: var(--green);">
+            <div class="label">計算根直徑 (d = λL/2S)</div>
+            <div class="value" id="calc-d">0.00 mm</div>
+        </div>
+    </div>
+</div>
+
+<div id="status-bar">
+    <strong>實驗記錄：</strong> <span id="hint">請先播種並讓植物生長數日。根據文件，根越粗，亮紋間距 S 會越短 [2, 3]。</span>
+</div>
+
+<script>
+    let state = {
+        days: 0,
+        seeds: 0,
+        currentLambda: 0, // nm
+        L: 8394 // mm, 來源文件參考值
+    };
+
+    function action(type, param) {
+        const hint = document.getElementById('hint');
+        
+        if (type === 'plant') {
+            state.seeds = 20; // 最佳化條件 [4]
+            document.getElementById('petri-dish').innerHTML = '';
+            for(let i=0; i<20; i++) {
+                let s = document.createElement('div');
+                s.className = 'seed';
+                document.getElementById('petri-dish').appendChild(s);
+            }
+            hint.innerText = "已播入 20 顆種子（實驗發現之最佳化條件）。";
+        }
+
+        if (type === 'laser') {
+            if (state.days < 2) {
+                hint.innerText = "植物尚未萌芽長根，無法觀測干涉現象。";
+                return;
+            }
+            
+            state.currentLambda = (param === 'green') ? 532 : 405;
+            document.getElementById('wave-val').innerText = state.currentLambda;
+            
+            // 計算模擬直徑 d (隨天數增加)
+            let d = 0.8 + (state.days * 0.05); 
+            document.getElementById('true-d').innerText = d.toFixed(2);
+            
+            // 公式：S = (lambda * L) / (2 * d)
+            let lambda_mm = state.currentLambda / 1000000;
+            let S = (lambda_mm * state.L) / (2 * d);
+            
+            document.getElementById('s-val').innerText = S.toFixed(3);
+            document.getElementById('calc-d').innerText = d.toFixed(2) + " mm";
+            
+            hint.innerText = (param === 'green') ? 
+                "使用綠光雷射。亮紋清晰，與文件實驗結果一致 [1]。" : 
+                "使用藍紫光雷射。波長較短，亮紋間距 S 會縮短，且觀測效果較差 [1]。";
+            
+            updateFringes(S, param);
+        }
+    }
+
+    function nextDay() {
+        if (state.seeds === 0) return;
+        state.days++;
+        document.getElementById('days').innerText = state.days;
+        document.getElementById('hint').innerText = "進入第 " + state.days + " 天。根部正在生長。";
+    }
+
+    function updateFringes(S, color) {
+        const container = document.getElementById('fringe-container');
+        container.innerHTML = '';
+        const hexColor = (color === 'green') ? '#2ecc71' : '#9b59b6';
+        
+        // 模擬產生 10 條亮紋
+        for(let i=0; i<15; i++) {
+            let f = document.createElement('div');
+            f.className = 'fringe';
+            f.style.backgroundColor = hexColor;
+            f.style.boxShadow = `0 0 10px ${hexColor}`;
+            f.style.margin = `0 ${S * 5}px`; // 視覺比例放大
+            f.style.opacity = (1 - Math.abs(i-7)/8); // 中央最亮
+            container.appendChild(f);
+        }
+    }
+</script>
+
+</body>
+</html>
