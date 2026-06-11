@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐰兔兔1A2B</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Microsoft JhengHei";
+}
+
+body{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:linear-gradient(
+        135deg,
+        #ffd6e7,
+        #ffe9c7,
+        #d7f4ff
+    );
+}
+
+.card{
+    width:420px;
+    background:white;
+    border-radius:30px;
+    padding:30px;
+    box-shadow:0 15px 35px rgba(0,0,0,.12);
+    text-align:center;
+}
+
+.rabbit{
+    font-size:70px;
+    animation:float 2s ease-in-out infinite;
+}
+
+@keyframes float{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-10px);}
+}
+
+h1{
+    color:#ff6fa5;
+    margin:10px 0;
+}
+
+.subtitle{
+    color:#888;
+    margin-bottom:20px;
+}
+
+input{
+    width:180px;
+    padding:12px;
+    border:none;
+    background:#fff4f8;
+    border-radius:15px;
+    font-size:22px;
+    text-align:center;
+    outline:none;
+}
+
+.btn{
+    margin-top:15px;
+    border:none;
+    padding:12px 24px;
+    border-radius:999px;
+    cursor:pointer;
+    font-size:18px;
+    color:white;
+    transition:.3s;
+}
+
+.guessBtn{
+    background:#ff8ab4;
+}
+
+.guessBtn:hover{
+    transform:scale(1.05);
+}
+
+.resetBtn{
+    background:#88cfff;
+    margin-left:8px;
+}
+
+.message{
+    margin-top:18px;
+    font-weight:bold;
+    color:#ff5f95;
+}
+
+.history{
+    margin-top:20px;
+    max-height:250px;
+    overflow:auto;
+}
+
+.record{
+    background:#fff8dc;
+    margin:8px 0;
+    padding:10px;
+    border-radius:15px;
+}
+
+.win{
+    color:#ff4081;
+    font-size:24px;
+    animation:pop .5s infinite alternate;
+}
+
+@keyframes pop{
+    from{
+        transform:scale(1);
+    }
+    to{
+        transform:scale(1.08);
+    }
+}
+
+.star{
+    position:fixed;
+    font-size:25px;
+    animation:fall 2s linear forwards;
+}
+
+@keyframes fall{
+    from{
+        transform:translateY(-100px);
+        opacity:1;
+    }
+    to{
+        transform:translateY(800px);
+        opacity:0;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<div class="rabbit">🐰</div>
+
+<h1>兔兔 1A2B</h1>
+
+<div class="subtitle">
+猜出兔兔藏起來的數字吧！
+</div>
+
+<input
+id="guess"
+maxlength="4"
+placeholder="1234">
+
+<br>
+
+<button class="btn guessBtn" onclick="checkGuess()">
+🍓 猜猜看
+</button>
+
+<button class="btn resetBtn" onclick="newGame()">
+🌷 重來
+</button>
+
+<div class="message" id="message"></div>
+
+<div class="history" id="history"></div>
+
+</div>
+
+<script>
+
+let answer="";
+let count=0;
+
+function generateAnswer(){
+
+    let nums=['0','1','2','3','4','5','6','7','8','9'];
+
+    nums.sort(()=>Math.random()-0.5);
+
+    return nums.slice(0,4).join('');
+}
+
+function newGame(){
+
+    answer=generateAnswer();
+    count=0;
+
+    document.getElementById("history").innerHTML="";
+    document.getElementById("message").innerHTML="";
+    document.getElementById("guess").value="";
+
+    console.log("答案:",answer);
+}
+
+function checkGuess(){
+
+    let guess=document
+        .getElementById("guess")
+        .value;
+
+    if(!/^\d{4}$/.test(guess)){
+        alert("請輸入4位數字！");
+        return;
+    }
+
+    if(new Set(guess).size!==4){
+        alert("數字不能重複！");
+        return;
+    }
+
+    count++;
+
+    let A=0;
+    let B=0;
+
+    for(let i=0;i<4;i++){
+
+        if(guess[i]===answer[i]){
+            A++;
+        }
+        else if(answer.includes(guess[i])){
+            B++;
+        }
+    }
+
+    let result=`${A}A${B}B`;
+
+    let history=document.getElementById("history");
+
+    history.innerHTML=
+    `
+    <div class="record">
+    🎀 第 ${count} 次：
+    <b>${guess}</b>
+    ➜ ${result}
+    </div>
+    ` + history.innerHTML;
+
+    if(A===4){
+
+        document.getElementById("message").innerHTML=
+        `<div class="win">
+        🎉 恭喜兔兔被你找到啦！
+        <br>
+        共猜了 ${count} 次 💖
+        </div>`;
+
+        celebration();
+    }
+    else{
+        document.getElementById("message").innerHTML=
+        `🐾 ${result}`;
+    }
+
+    document.getElementById("guess").value="";
+}
+
+function celebration(){
+
+    for(let i=0;i<30;i++){
+
+        let star=document.createElement("div");
+
+        star.className="star";
+
+        star.innerHTML=
+            ["⭐","🌸","💖","✨","🍓"][Math.floor(Math.random()*5)];
+
+        star.style.left=
+            Math.random()*100+"vw";
+
+        document.body.appendChild(star);
+
+        setTimeout(()=>{
+            star.remove();
+        },2000);
+    }
+}
+
+document.getElementById("guess")
+.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){
+        checkGuess();
+    }
+});
+
+newGame();
+
+</script>
+
+</body>
+</html>
